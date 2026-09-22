@@ -91,6 +91,9 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
     # 使用跨平台临时目录
     diff_file = os.path.join(tempfile.gettempdir(), "pr.diff")
     max_retries = 3
+    # 重试间隔 30 秒：边缘限流窗口通常 30-60 秒，1s 间隔的 3 次重试会
+    # 全部落在同一被限流窗口内必然失败；30s 让下一次重试等到窗口过后
+    retry_wait_seconds = 30
     base_sha = None
 
     # 1) 获取 PR 详情（base.sha 用于后续获取 base 文件内容）。
@@ -108,7 +111,7 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
         except Exception as e:
             print(f"  Attempt {attempt} failed: {e}")
             if attempt < max_retries:
-                time.sleep(1)
+                time.sleep(retry_wait_seconds)
     if not base_sha:
         print("  Error: failed to get PR info (base sha) after all attempts, exiting")
         exit(1)
@@ -135,7 +138,7 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
             if attempt == max_retries:
                 print(f"  All {max_retries} attempts failed, exiting")
                 exit(1)
-            time.sleep(1)
+            time.sleep(retry_wait_seconds)
 
     print(f"  PR diff saved to: {diff_file}")
 
@@ -157,7 +160,7 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
             except Exception as e:
                 print(f"  Attempt {attempt}/{max_retries} to fetch base content for {path} failed: {e}")
                 if attempt < max_retries:
-                    time.sleep(1)
+                    time.sleep(retry_wait_seconds)
         print(f"  Error: failed to fetch base content for {path} after all attempts, exiting")
         exit(1)
 

@@ -402,7 +402,7 @@ torch_npu 的 PR 拉取通过公共模块 `test_selector.gitcode`（`--gitcode-p
 
 > 拼接后的 diff 格式与 GitHub 一致，因此下游 `diff_parser` 的噪音分类逻辑完全复用，不感知数据源差异。
 > **代理要求**：GitCode/GitHub API 均需直连外网；华为内网环境必须配置代理（见第九章）。若未配置代理，`urllib` 抛 `WinError 10060` 连接超时，3 次重试后退出。
-> **不允许降级**：PR 详情（base.sha）、diff 主路（`.diff` 端点）与 base 文件内容拉取失败均重试 3 次后直接退出，不降级继续；diff 获取仅 GitCode 保留 `/files` 拼接兜底（GitHub 无兜底），兜底同样重试 3 次，全部失败即退出。
+> **不允许降级**：PR 详情（base.sha）、diff 主路（`.diff` 端点）与 base 文件内容拉取失败均重试 3 次（间隔 30 秒，避开边缘限流窗口）后直接退出，不降级继续；diff 获取仅 GitCode 保留 `/files` 拼接兜底（GitHub 无兜底），兜底同样重试 3 次，全部失败即退出。
 
 ---
 
