@@ -51,7 +51,7 @@ python -m test_selector --repo torch_npu --gitcode-pr "Ascend/pytorch#46780"
 - **精准匹配**：无全量触发时，基于行/函数/文件级匹配选择测试
 - **文件重命名检测**：rename 新路径在覆盖率数据中不存在，用旧路径做文件级匹配召回
 - **新增/删除处理**：新增测试文件直接加入；已删除测试文件从结果中移除
-- **排除变更场景**：纯注释/docstring、纯类型注解、函数/类定义间空行插入、新增 def/class 整体、新文件等不构成代码变更的场景，在 diff 解析阶段剔除（见第五章）
+- **排除变更场景**：纯注释/docstring、纯类型注解、首次新增的变量绑定、函数/类定义间空行插入、新增 def/class 整体、新文件等不构成代码变更的场景，在 diff 解析阶段剔除（见第五章）
 
 **代码结构**：
 
@@ -61,7 +61,7 @@ test_selector/
 ├── __main__.py            # python -m test_selector 入口
 ├── github.py              # PR 拉取（公共）
 ├── pr_detector.py         # 检测 PR 内容：测试文件/删除文件/全量触发（规则委托 adapter）
-├── diff_parser.py         # 排除变更场景：纯注释/docstring/纯注解/新文件跳过等
+├── diff_parser.py         # 排除变更场景：纯注释/docstring/纯注解/首次绑定/新文件跳过等
 ├── noise_filter.py        # map 噪音处理：import/def/class/docstring/空行
 ├── function_parser.py     # 函数区间解析（sglang 优化版，区间线性扫描）
 ├── coverage_selector.py   # 构建 测试用例→覆盖文件/行号 映射
@@ -282,6 +282,7 @@ if args.disable_function_match:
 | ------------------------------------ | ------------------------------------ |
 | 纯注释/docstring 变更                     | 删除组全为注释/docstring 且新增为注释/doc 说明 → 剔除 |
 | 纯类型注解变更（插入/替换/删除）                    | 可证明惰性的注解（函数体内、普通类、模块级，无副作用）→ 豁免      |
+| 首次新增的变量绑定（纯插入）                    | 全部为绑定全新名字的带值赋值（名字在 base 中不存在、RHS 惰性、无尾逗号行）→ 豁免 |
 | 函数/类定义之间的空行插入                        | 位于两个 def/class 之间 → 排除               |
 | 新增 def/class 整体                      | 插入文本属于新定义的函数/类 → 排除                  |
 | 新文件（`--- /dev/null` + `@@ -0,0 ...`） | 无 base 版本，跳过行级解析（避免无意义的 base 内容拉取）   |
