@@ -312,9 +312,7 @@ def _class_consumes_annotations(cls_node: ast.ClassDef, class_map: dict) -> bool
             return True
         for base in node.bases:
             name = _base_simple_name(base)
-            if name is None:
-                return True
-            if name in _ANNOTATION_CONSUMING_BASES:
+            if name is None or name in _ANNOTATION_CONSUMING_BASES:
                 return True
             parent = class_map.get(name)
             if parent is not None and id(parent) not in seen:
@@ -656,13 +654,11 @@ def _classify_candidate_pairs(
     docstr_lines = set()
     comment_lines = set()
     ann_ctx = None
-    base_lines = []
     if base_text is not None:
         try:
-            base_lines = base_text.splitlines()
             info = _collect_defs(base_text)
             docstr_lines = _get_docstring_lines(base_text)
-            comment_lines = {i for i, t in enumerate(base_lines, 1) if t.strip().startswith("#")}
+            comment_lines = {i for i, t in enumerate(base_text.splitlines(), 1) if t.strip().startswith("#")}
             ann_ctx = _collect_class_info(base_text)
         except (SyntaxError, ValueError):
             info = None
