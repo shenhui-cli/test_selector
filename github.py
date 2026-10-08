@@ -145,8 +145,9 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
     def _fetch_base_content(path: str) -> str:
         """获取 base（变更前）文件内容，用于 ast 分类。
 
-        仅走 contents API 单路获取；失败即退出，不允许降级：
+        contents API 单路获取；失败即退出，不允许降级：
         base 内容缺失会导致 AST 分类退化（候选对两侧计入），精度无法保证。
+        大于1M文件时自动改用 git blob API 获取内容（base64编码）
         """
         content_url = f"https://api.github.com/repos/{repo}/contents/{urllib.parse.quote(path)}?ref={base_sha}"
         for attempt in range(1, max_retries + 1):

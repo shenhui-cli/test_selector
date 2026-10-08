@@ -4,13 +4,11 @@
 
 **精准测试选择器** — 基于已有覆盖率数据，从 PR/变更中智能选择需要执行的测试用例。支持 **行级 + 函数级** 匹配（并行执行，合并去重），**文件级** 匹配作为兜底（重命名/删除文件场景）。
 
-
-
 **入口**：
 
 ```bash
 python -m test_selector --repo vllm_ascend --github-pr "vllm-project/vllm-ascend#12379"
-python -m test_selector --repo torch_npu --github-pr "pytorch/pytorch#150000"
+python -m test_selector --repo pytorch --github-pr "pytorch/pytorch#150000"
 ```
 
 > **PR 源选择**：三仓库均使用 GitHub（`--github-pr`）；torch_npu 检测上游仓库 [pytorch/pytorch](https://github.com/pytorch/pytorch)。
@@ -131,7 +129,7 @@ test_selector/
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | vllm_ascend | `tests__e2e__pull_request__one_card__test_xxx` → `tests/e2e/pull_request/one_card/test_xxx.py`；含 `--test_foo` → `...::test_foo`（函数级）；`cpu-ut` 保持不变                                                  |
 | sglang      | `____w__sglang__sglang__test__registered__npu__basic_function__backends__test_npu_sampling_backend` → `test/registered/npu/basic_function/backends/test_npu_sampling_backend.py`；含 `--` → `::`（函数级） |
-| torch_npu   | `_inductor__test_add` → `_inductor/test_add.py`；含 `--test_foo` → `...::test_foo`（函数级）                                                                                                               |
+| pytorch   | `_inductor__test_add` → `_inductor/test_add.py`；含 `--test_foo` → `...::test_foo`（函数级）                                                                                                               |
 
 **产品代码路径前缀**（diff / 覆盖率库路径 → 仓库相对路径）：
 
@@ -139,7 +137,7 @@ test_selector/
 | ----------- | ---------------- | ----------------------------------------------------------------- |
 | vllm_ascend | `vllm_ascend/`   | `vllm_ascend/core/worker.py` → `core/worker.py`                   |
 | sglang      | `python/sglang/` | `python/sglang/srt/models/qwen3_vl.py` → `srt/models/qwen3_vl.py` |
-| torch_npu   | `torch/`         | `torch/distributed/utils.py` → `distributed/utils.py`             |
+| pytorch   | `torch/`         | `torch/distributed/utils.py` → `distributed/utils.py`             |
 
 ---
 
@@ -161,7 +159,7 @@ python -m test_selector --repo sglang --build-map \
     --source-dir ./covstub
 
 # torch_npu
-python -m test_selector --repo torch_npu --build-map \
+python -m test_selector --repo pytorch --build-map \
     --coverage-dir "PyTorch@Task20260903" \
     --source-dir ./covstub
 ```
@@ -207,18 +205,18 @@ python -m test_selector --repo torch_npu \
 
 ### 公共参数
 
-| 参数                      | 必填       | 说明                                                                                          |
-| ----------------------- | -------- | ------------------------------------------------------------------------------------------- |
-| `--repo` / `-r`         | 否        | 仓库适配器：`vllm_ascend` / `sglang` / `torch_npu`（默认：`vllm_ascend`，薄入口默认各自仓库）                    |
+| 参数                      | 必填       | 说明                                                                                                             |
+| ----------------------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `--repo` / `-r`         | 否        | 仓库适配器：`vllm_ascend` / `sglang` / `torch_npu`（默认：`vllm_ascend`，薄入口默认各自仓库）                                       |
 | `--github-pr` / `-pr`   | 二选一      | GitHub PR（三仓库通用），格式：`owner/repo#pr_number` 或仅 `pr_number`（自动从 git remote 推导）；torch_npu 传上游 `pytorch/pytorch#N` |
-| `--gitcode-pr`          | 二选一      | GitCode PR（公共备用模块，当前无仓库默认使用），格式：`owner/repo#pr_number` 或仅 `pr_number`（自动从 git remote 推导）；两参数互斥     |
-| `--source-dir` / `-s`   | 建议       | 源码目录（默认：`covstub`；函数级匹配与噪音过滤需要）                                                             |
-| `--map-file` / `-m`     | 否        | 映射文件（默认：`test_case_map.json`）                                                               |
-| `--coverage-dir` / `-c` | 构建 map 时 | 覆盖率数据目录（默认：`coverage`）                                                                      |
-| `--build-map` / `-b`    | 否        | 强制重建测试用例映射；仅构建 map 时使用                                                                      |
-| `--min-affected` / `-a` | 否        | 最少受影响行数阈值（默认：1）                                                                             |
-| `--dedup`               | 否        | 去重：相同覆盖行的测试只保留一个（默认关闭）                                                                      |
-| `--skip-imports`        | 否        | 函数级匹配时跳过 import 语句行（默认关闭）                                                                   |
+| `--gitcode-pr`          | 二选一      | GitCode PR（公共备用模块，当前无仓库默认使用），格式：`owner/repo#pr_number` 或仅 `pr_number`（自动从 git remote 推导）；两参数互斥                 |
+| `--source-dir` / `-s`   | 建议       | 源码目录（默认：`covstub`；函数级匹配与噪音过滤需要）                                                                                |
+| `--map-file` / `-m`     | 否        | 映射文件（默认：`test_case_map.json`）                                                                                  |
+| `--coverage-dir` / `-c` | 构建 map 时 | 覆盖率数据目录（默认：`coverage`）                                                                                         |
+| `--build-map` / `-b`    | 否        | 强制重建测试用例映射；仅构建 map 时使用                                                                                         |
+| `--min-affected` / `-a` | 否        | 最少受影响行数阈值（默认：1）                                                                                                |
+| `--dedup`               | 否        | 去重：相同覆盖行的测试只保留一个（默认关闭）                                                                                         |
+| `--skip-imports`        | 否        | 函数级匹配时跳过 import 语句行（默认关闭）                                                                                      |
 
 ### 匹配粒度开关
 
@@ -242,16 +240,16 @@ if args.disable_function_match:
 
 ### 仓库差异对照
 
-| 维度      | vllm_ascend                                         | sglang                                                          | torch_npu                                                   |
-| ------- | --------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
-| PR 源    | GitHub                                              | GitHub                                                          | GitHub（pytorch/pytorch）                                     |
-| 产品代码前缀  | `vllm_ascend/`                                      | `python/sglang/`                                                | `torch/`                                                     |
-| 测试目录识别  | `tests__` 前缀 / `cpu-ut`                             | `____w__sglang__sglang__test__` 前缀                              | 目录名含 `__` 或以 `test_` 开头                                     |
-| 覆盖率文件位置 | `covdata/` 子目录                                      | 测试目录下直接放置（兼容探测 covdata）                                         | `covdata/` 子目录                                              |
-| 测试文件规则  | `tests/e2e/pull_request/`、`tests/ut/` 下 `test_*.py` | `test/registered/`、`test/{unit,e2e,integration}/` 下 `test_*.py` | `test/` 下 `test_*.py` |
-| 全量触发变更  | csrc/ 目录（非 .md）→ 全量测试                               | 无（csrc/rust 走精准匹配）                                              | 无（原生变更走精准匹配）                                                |
-| 测试名规范化  | `--`→`::`、`__`→`/`、文件级补 `.py`                       | 剥离编码前缀恢复 `test/`、`__`→`/`、`--`→`::`                             | `--`→`::`、`__`→`/`、文件级补 `.py`                               |
-| 变更检测    | 本地哈希比对（默认）或 PR diff                                 | 同左                                                              | 同左                                                          |
+| 维度      | vllm_ascend                                         | sglang                                                          | torch_npu                     |
+| ------- | --------------------------------------------------- | --------------------------------------------------------------- | ----------------------------- |
+| PR 源    | GitHub                                              | GitHub                                                          | GitHub（pytorch/pytorch）       |
+| 产品代码前缀  | `vllm_ascend/`                                      | `python/sglang/`                                                | `torch/`                      |
+| 测试目录识别  | `tests__` 前缀 / `cpu-ut`                             | `____w__sglang__sglang__test__` 前缀                              | 目录名含 `__` 或以 `test_` 开头       |
+| 覆盖率文件位置 | `covdata/` 子目录                                      | 测试目录下直接放置（兼容探测 covdata）                                         | `covdata/` 子目录                |
+| 测试文件规则  | `tests/e2e/pull_request/`、`tests/ut/` 下 `test_*.py` | `test/registered/`、`test/{unit,e2e,integration}/` 下 `test_*.py` | `test/` 下 `test_*.py`         |
+| 全量触发变更  | csrc/ 目录（非 .md）→ 全量测试                               | 无（csrc/rust 走精准匹配）                                              | 无（原生变更走精准匹配）                  |
+| 测试名规范化  | `--`→`::`、`__`→`/`、文件级补 `.py`                       | 剥离编码前缀恢复 `test/`、`__`→`/`、`--`→`::`                             | `--`→`::`、`__`→`/`、文件级补 `.py` |
+| 变更检测    | 本地哈希比对（默认）或 PR diff                                 | 同左                                                              | 同左                            |
 
 ---
 
@@ -278,16 +276,16 @@ if args.disable_function_match:
 
 `_parse_diff_base_lines()` 解析统一 diff 文本为受影响的 base（变更前）行号，并在解析阶段/后续分类阶段排除以下**不构成代码变更**的场景：
 
-| 场景                                   | 处理                                   |
-| ------------------------------------ | ------------------------------------ |
-| 纯注释/docstring 变更                     | 删除组全为注释/docstring 且新增为注释/doc 说明 → 剔除 |
-| 纯类型注解变更（插入/替换/删除）                    | 可证明惰性的注解（函数体内、普通类、模块级，无副作用）→ 豁免      |
-| 首次新增的变量绑定（纯插入）                    | 全部为绑定全新名字的带值赋值（名字在 base 中不存在、RHS 惰性、无尾逗号行）→ 豁免 |
-| 函数/类定义之间的空行插入                        | 位于两个 def/class 之间 → 排除               |
-| 新增 def/class 整体                      | 插入文本属于新定义的函数/类 → 排除                  |
-| 新文件（`--- /dev/null` + `@@ -0,0 ...`） | 无 base 版本，跳过行级解析（避免无意义的 base 内容拉取）   |
-| 函数体内纯插入                              | 记录插入位置上方的行号                          |
-| 隔离空行删除                               | 按单行插入处理为候选对（上、下两行）                   |
+| 场景                                   | 处理                                             |
+| ------------------------------------ | ---------------------------------------------- |
+| 纯注释/docstring 变更                     | 删除组全为注释/docstring 且新增为注释/doc 说明 → 剔除           |
+| 纯类型注解变更（插入/替换/删除）                    | 可证明惰性的注解（函数体内、普通类、模块级，无副作用）→ 豁免                |
+| 首次新增的变量绑定（纯插入）                       | 全部为绑定全新名字的带值赋值（名字在 base 中不存在、RHS 惰性、无尾逗号行）→ 豁免 |
+| 函数/类定义之间的空行插入                        | 位于两个 def/class 之间 → 排除                         |
+| 新增 def/class 整体                      | 插入文本属于新定义的函数/类 → 排除                            |
+| 新文件（`--- /dev/null` + `@@ -0,0 ...`） | 无 base 版本，跳过行级解析（避免无意义的 base 内容拉取）             |
+| 函数体内纯插入                              | 记录插入位置上方的行号                                    |
+| 隔离空行删除                               | 按单行插入处理为候选对（上、下两行）                             |
 
 **候选对分类**（`_classify_candidate_pairs`，需要 base 文件内容）：通过 GitHub contents API / GitCode raw 接口单路拉取 base 内容后做 AST 分类；拉取失败重试 3 次后直接退出（不允许降级），仅 AST 解析失败等无法分类的场景回退为 hunk 范围内双侧计数。
 
@@ -394,12 +392,12 @@ for path, label in file_level_paths:         # rename 旧路径 + 删除路径
 
 GitCode PR 拉取通过公共模块 `test_selector.gitcode`（`--gitcode-pr`，当前无仓库默认使用；torch_npu 已切换到 GitHub 上游仓库 pytorch/pytorch），与 GitHub 版（`test_selector.github`，`--github-pr`）的差异：
 
-| 维度            | github.py                                            | gitcode.py                                                           |
-| ------------- | ---------------------------------------------------- | -------------------------------------------------------------------- |
-| PR 详情/diff 获取 | `/pulls/{n}` 返回 base.sha；diff 直连 `github.com/{repo}/pull/{n}.diff` 公开端点         | `/pulls/{n}` 返回 base.sha；diff 优先 `.diff` 公开端点，失败兜底 `/pulls/{n}/files` 拼接 |
-| diff 拼接       | 无需拼接                                                 | `_build_unified_diff()` 合成 git 标记（`rename from/to`、`deleted file mode`、`--- a/` / `+++ b/` 头），结果格式与 GitHub 一致；`patch.diff` 为空时：纯改名/删除/新增仍合成标记（保文件级信号）、二进制/纯 mode 变更显式跳过、`too_large` 打印警告且行级变更不包含在拼接结果中 |
-| base 内容获取     | GitHub contents API（`?ref=base_sha`，base64）          | `raw.gitcode.com/{repo}/raw/{sha}/{path}`                            |
-| 认证方式          | `Authorization: Bearer`（`GITHUB_TOKEN` / `GH_TOKEN`） | `access_token` 查询参数（`GITCODE_TOKEN`）                                 |
+| 维度            | github.py                                                               | gitcode.py                                                                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR 详情/diff 获取 | `/pulls/{n}` 返回 base.sha；diff 直连 `github.com/{repo}/pull/{n}.diff` 公开端点 | `/pulls/{n}` 返回 base.sha；diff 优先 `.diff` 公开端点，失败兜底 `/pulls/{n}/files` 拼接                                                                                                                               |
+| diff 拼接       | 无需拼接                                                                    | `_build_unified_diff()` 合成 git 标记（`rename from/to`、`deleted file mode`、`--- a/` / `+++ b/` 头），结果格式与 GitHub 一致；`patch.diff` 为空时：纯改名/删除/新增仍合成标记（保文件级信号）、二进制/纯 mode 变更显式跳过、`too_large` 打印警告且行级变更不包含在拼接结果中 |
+| base 内容获取     | GitHub contents API（`?ref=base_sha`，base64）                             | `raw.gitcode.com/{repo}/raw/{sha}/{path}`                                                                                                                                                              |
+| 认证方式          | `Authorization: Bearer`（`GITHUB_TOKEN` / `GH_TOKEN`）                    | `access_token` 查询参数（`GITCODE_TOKEN`）                                                                                                                                                                   |
 
 > 拼接后的 diff 格式与 GitHub 一致，因此下游 `diff_parser` 的噪音分类逻辑完全复用，不感知数据源差异。
 > **代理要求**：GitCode/GitHub API 均需直连外网；华为内网环境必须配置代理（见第九章）。若未配置代理，`urllib` 抛 `WinError 10060` 连接超时，3 次重试后退出。
@@ -535,7 +533,7 @@ python -m test_selector --repo sglang \
     --github-pr "sgl-project/sglang#37043" -s ./covstub
 
 # GitHub PR（torch_npu，上游 pytorch/pytorch）
-python -m test_selector --repo torch_npu \
+python -m test_selector --repo pytorch \
     --github-pr "pytorch/pytorch#150000" -s ./covstub
 ```
 
@@ -595,23 +593,23 @@ selected, reason = ts.select_tests(changed, source_dir="covstub")
 
 ## 九、故障排除
 
-| 问题                                                                  | 可能原因                                                              | 解决方案                                                                                                  |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `Error: --coverage-dir is required when building the test case map` | map 文件不存在且未传覆盖率目录                                                 | 首次使用需传 `--coverage-dir`（或先 `--build-map`）                                                             |
-| `Coverage data directory not found`                                 | 覆盖率目录路径不对                                                         | 确认 `--coverage-dir` 指向含测试用例目录的根目录                                                                     |
-| `没有测试用例覆盖变更的代码行`                                                    | 变更文件无覆盖数据                                                         | 确认覆盖率数据来自变更前的全量用例                                                                                     |
-| `解析 PR 失败` / GitHub API 超时                                          | 内网无法直连 GitHub                                                     | 设置代理环境变量后重试（见下方）                                                                                      |
-| `WinError 10060` 连接超时（GitCode）                                      | 内网无法直连 GitCode API                                                | 设置代理环境变量后重试（见下方）；git 全局已配置 `proxycn2.huawei.com:8080` 认证代理时，PowerShell 中执行 `$env:HTTPS_PROXY=...` 后重试 |
-| `函数级匹配失败`                                                           | 源码目录路径不对                                                          | 确认 `--source-dir` 指向包含 `vllm_ascend/` / `sglang/` / `torch/` 包的根目录                                |
-| 推荐结果过多                                                              | 变更函数被大量测试覆盖                                                       | 启用 `--dedup` 或提高 `--min-affected`                                                                     |
-| 推荐结果为空                                                              | PR 仅含原生代码变更且无新测试文件（sglang）                                        | 正常，原生代码变更不触发全量                                                                                        |
-| 推荐结果为空                                                              | PR 仅含原生代码变更（torch_npu，如 `torch/csrc/` 下 C++/CUDA 文件）        | 正常但**存在漏测风险**：原生代码变更不解析进精准匹配；建议人工评估是否需跑相关用例                                                        |
-| `Full-Suite Changes Detected`（vllm）                                 | diff 含 csrc/ 目录变更                                                 | 正常行为，触发全量测试                                                                                           |
-| `New Test Files Added: X`                                           | diff 中有新增测试文件                                                     | 正常，直接加入推荐列表                                                                                           |
-| `Deleted Test Files Removed: X`                                     | diff 中有已删除测试文件                                                    | 正常，从推荐列表移除                                                                                            |
-| `Detected X Renamed File(s)`                                        | diff 中包含文件重命名                                                     | 正常，旧路径做文件级匹配                                                                                          |
-| 变更行数偏多、含 context 行                                                  | diff 解析按 hunk 范围推算                                                | 已知限制，算法保守偏多报                                                                                          |
-| `Unknown repo 'xxx'`                                                | `--repo` 拼写错误                                                     | 使用 `vllm_ascend` / `sglang` / `torch_npu`                                                             |
+| 问题                                                                  | 可能原因                                                 | 解决方案                                                                                                  |
+| ------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `Error: --coverage-dir is required when building the test case map` | map 文件不存在且未传覆盖率目录                                    | 首次使用需传 `--coverage-dir`（或先 `--build-map`）                                                             |
+| `Coverage data directory not found`                                 | 覆盖率目录路径不对                                            | 确认 `--coverage-dir` 指向含测试用例目录的根目录                                                                     |
+| `没有测试用例覆盖变更的代码行`                                                    | 变更文件无覆盖数据                                            | 确认覆盖率数据来自变更前的全量用例                                                                                     |
+| `解析 PR 失败` / GitHub API 超时                                          | 内网无法直连 GitHub                                        | 设置代理环境变量后重试（见下方）                                                                                      |
+| `WinError 10060` 连接超时（GitCode）                                      | 内网无法直连 GitCode API                                   | 设置代理环境变量后重试（见下方）；git 全局已配置 `proxycn2.huawei.com:8080` 认证代理时，PowerShell 中执行 `$env:HTTPS_PROXY=...` 后重试 |
+| `函数级匹配失败`                                                           | 源码目录路径不对                                             | 确认 `--source-dir` 指向包含 `vllm_ascend/` / `sglang/` / `torch/` 包的根目录                                    |
+| 推荐结果过多                                                              | 变更函数被大量测试覆盖                                          | 启用 `--dedup` 或提高 `--min-affected`                                                                     |
+| 推荐结果为空                                                              | PR 仅含原生代码变更且无新测试文件（sglang）                           | 正常，原生代码变更不触发全量                                                                                        |
+| 推荐结果为空                                                              | PR 仅含原生代码变更（torch_npu，如 `torch/csrc/` 下 C++/CUDA 文件） | 正常但**存在漏测风险**：原生代码变更不解析进精准匹配；建议人工评估是否需跑相关用例                                                           |
+| `Full-Suite Changes Detected`（vllm）                                 | diff 含 csrc/ 目录变更                                    | 正常行为，触发全量测试                                                                                           |
+| `New Test Files Added: X`                                           | diff 中有新增测试文件                                        | 正常，直接加入推荐列表                                                                                           |
+| `Deleted Test Files Removed: X`                                     | diff 中有已删除测试文件                                       | 正常，从推荐列表移除                                                                                            |
+| `Detected X Renamed File(s)`                                        | diff 中包含文件重命名                                        | 正常，旧路径做文件级匹配                                                                                          |
+| 变更行数偏多、含 context 行                                                  | diff 解析按 hunk 范围推算                                   | 已知限制，算法保守偏多报                                                                                          |
+| `Unknown repo 'xxx'`                                                | `--repo` 拼写错误                                        | 使用 `vllm_ascend` / `sglang` / `torch_npu`                                                             |
 
 **代理配置示例（华为内网环境）**：
 
@@ -621,7 +619,7 @@ set HTTP_PROXY=http://<user>:<pwd>@proxycn2.huawei.com:8080/
 set HTTPS_PROXY=http://<user>:<pwd>@proxycn2.huawei.com:8080/
 
 python -m test_selector --repo vllm_ascend --github-pr "vllm-project/vllm-ascend#16104" -s ./covstub
-python -m test_selector --repo torch_npu --github-pr "pytorch/pytorch#150000" -s ./covstub
+python -m test_selector --repo pytorch --github-pr "pytorch/pytorch#150000" -s ./covstub
 ```
 
 > **说明**：
