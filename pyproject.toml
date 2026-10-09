@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "test-selector"
+description = "覆盖率驱动的精准测试选择器（vllm_ascend / sglang / pytorch 统一架构）"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+dependencies = ["regex"]
+
+[tool.setuptools]
+packages = ["test_selector", "test_selector.repos"]
+
+[tool.setuptools.package-dir]
+test_selector = "."
+
+[tool.setuptools.dynamic]
+version = { attr = "test_selector.__version__" }
