@@ -91,6 +91,11 @@ def build_parser(adapter, default_repo: str) -> argparse.ArgumentParser:
         default=defaults["skip_imports"],
         help="Skip import statement lines (only effective for function-level matching, default off)",
     )
+    parser.add_argument(
+        "--output", "-o",
+        default=None,
+        help="Output file path for the recommended test list (default: <package-parent>/recommended_pytest_paths.txt)",
+    )
     return parser
 
 
@@ -307,8 +312,8 @@ def main(argv=None) -> None:
     else:
         print("\n=== No Test Cases Recommended ===")
 
-    # Always write output file (even if empty), next to the repo root
-    output_file = BASE_DIR / "recommended_pytest_paths.txt"
+    # Always write output file (even if empty); --output wins, default is next to the repo root
+    output_file = Path(args.output) if args.output else BASE_DIR / "recommended_pytest_paths.txt"
     with open(output_file, "w", encoding="utf-8") as f:
         for test_name in test_names:
             f.write(test_name + "\n")
