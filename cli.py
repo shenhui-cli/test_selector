@@ -10,11 +10,9 @@
 
 用法：
     python -m test_selector --repo vllm_ascend --github-pr owner/repo#123
-    python -m test_selector --repo torch_npu --github-pr pytorch/pytorch#123
+    python -m test_selector --repo pytorch --github-pr pytorch/pytorch#123     # 上游 pytorch/pytorch
+    python -m test_selector --repo torch_npu --gitcode-pr Ascend/pytorch#123   # Ascend/pytorch（torch_npu 本体，GitCode）
     python -m test_selector --repo sglang --build-map --coverage-dir coverage
-    python vllm/test_selector.py --github-pr 123          # 薄入口（默认 vllm_ascend）
-    python sglang/test_selector.py --github-pr 123        # 薄入口（默认 sglang）
-    python PyTorch/test_selector.py --github-pr 123       # 薄入口（默认 torch_npu，检测上游 pytorch/pytorch）
 """
 
 import argparse
@@ -28,6 +26,9 @@ from .test_selector import TestSelector
 
 #: 仓库根目录（test_selector 包的上级）：相对路径基准 + 输出文件位置
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+#: 默认仓库适配器
+DEFAULT_REPO = "vllm_ascend"
 
 
 def _resolve_abs(base: Path, p: str) -> Path:
@@ -93,22 +94,21 @@ def build_parser(adapter, default_repo: str) -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv=None, default_repo: str = "vllm_ascend") -> None:
+def main(argv=None) -> None:
     """统一 CLI 主入口。
 
     Args:
         argv: 命令行参数列表（None 时使用 sys.argv[1:]）
-        default_repo: 默认仓库适配器（薄入口可注入，如 sglang 入口默认 'sglang'）
     """
     # 第一阶段：仅解析 --repo 以确定仓库适配器（其余参数默认值依赖 adapter）
     pre_parser = argparse.ArgumentParser(add_help=False)
-    pre_parser.add_argument("--repo", "-r", default=default_repo, choices=list(AVAILABLE_REPOS))
+    pre_parser.add_argument("--repo", "-r", default=DEFAULT_REPO, choices=list(AVAILABLE_REPOS))
     pre_args, _ = pre_parser.parse_known_args(argv)
 
     adapter = get_adapter(pre_args.repo)
 
     # 第二阶段：完整解析，默认值来自 adapter.cli_defaults()
-    args = build_parser(adapter, default_repo).parse_args(argv)
+    args = build_parser(adapter, DEFAULT_REPO).parse_args(argv)
 
     # 粒度开关：disable 优先
     if args.disable_line_match:

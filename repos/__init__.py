@@ -1,17 +1,19 @@
 """仓库适配器注册表：按仓库名获取对应适配器实例。"""
 
+from .ascend_pytorch import AscendPytorchAdapter
 from .base import RepoAdapter
 from .sglang import SglangAdapter
-from .torch_npu import TorchNpuAdapter
+from .pytorch import PytorchAdapter
 from .vllm_ascend import VllmAscendAdapter
 
-__all__ = ["RepoAdapter", "VllmAscendAdapter", "SglangAdapter", "TorchNpuAdapter", "get_adapter", "AVAILABLE_REPOS"]
+__all__ = ["RepoAdapter", "VllmAscendAdapter", "SglangAdapter", "PytorchAdapter", "AscendPytorchAdapter", "get_adapter", "AVAILABLE_REPOS"]
 
 #: 已注册的适配器
 _ADAPTERS = {
     "vllm_ascend": VllmAscendAdapter,
     "sglang": SglangAdapter,
-    "pytorch": TorchNpuAdapter,
+    "pytorch": PytorchAdapter,
+    "torch_npu": AscendPytorchAdapter,
 }
 
 AVAILABLE_REPOS = tuple(_ADAPTERS.keys())
@@ -21,7 +23,7 @@ def get_adapter(repo_name: str) -> RepoAdapter:
     """按仓库名获取适配器实例。
 
     Args:
-        repo_name: 仓库名（vllm_ascend / sglang / pytorch）
+        repo_name: 仓库名（vllm_ascend / sglang / pytorch / torch_npu）
 
     Returns:
         RepoAdapter 实例
