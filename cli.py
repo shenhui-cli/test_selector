@@ -27,9 +27,6 @@ from .test_selector import TestSelector
 #: 仓库根目录（test_selector 包的上级）：相对路径基准 + 输出文件位置
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-#: 默认仓库适配器
-DEFAULT_REPO = "vllm_ascend"
-
 
 def _resolve_abs(base: Path, p: str) -> Path:
     """相对路径基于 base 解析，绝对路径保持原样。"""
@@ -92,6 +89,10 @@ def build_parser(adapter, default_repo: str) -> argparse.ArgumentParser:
         help="Skip import statement lines (only effective for function-level matching, default off)",
     )
     parser.add_argument(
+        "--new-tests-output",
+        help="Write the new test files extracted from the PR diff to this file (one per line, for the append-table workflow)",
+    )
+    parser.add_argument(
         "--output", "-o",
         default=None,
         help="Output file path for the recommended test list (default: <package-parent>/recommended_pytest_paths.txt)",
@@ -99,21 +100,22 @@ def build_parser(adapter, default_repo: str) -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv=None) -> None:
+def main(argv=None, default_repo: str = "vllm_ascend") -> None:
     """统一 CLI 主入口。
 
     Args:
         argv: 命令行参数列表（None 时使用 sys.argv[1:]）
+        default_repo: 默认仓库适配器（薄入口可注入，如 sglang 入口默认 'sglang'）
     """
     # 第一阶段：仅解析 --repo 以确定仓库适配器（其余参数默认值依赖 adapter）
     pre_parser = argparse.ArgumentParser(add_help=False)
-    pre_parser.add_argument("--repo", "-r", default=DEFAULT_REPO, choices=list(AVAILABLE_REPOS))
+    pre_parser.add_argument("--repo", "-r", default=default_repo, choices=list(AVAILABLE_REPOS))
     pre_args, _ = pre_parser.parse_known_args(argv)
 
     adapter = get_adapter(pre_args.repo)
 
     # 第二阶段：完整解析，默认值来自 adapter.cli_defaults()
-    args = build_parser(adapter, DEFAULT_REPO).parse_args(argv)
+    args = build_parser(adapter, default_repo).parse_args(argv)
 
     # 粒度开关：disable 优先
     if args.disable_line_match:
@@ -318,6 +320,14 @@ def main(argv=None) -> None:
         for test_name in test_names:
             f.write(test_name + "\n")
     print(f"\nResults saved to: {output_file}")
+
+    # Write new test files to a separate file when requested (append-table workflow)
+    if args.new_tests_output:
+        new_tests_path = _resolve_abs(BASE_DIR, args.new_tests_output)
+        with open(new_tests_path, "w", encoding="utf-8") as f:
+            for test_name in new_test_files:
+                f.write(test_name + "\n")
+        print(f"New test files ({len(new_test_files)}) saved to: {new_tests_path}")
 
 
 if __name__ == "__main__":
