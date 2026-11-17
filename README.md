@@ -67,10 +67,12 @@ test_selector/
 ├── coverage_selector.py   # 构建 测试用例→覆盖文件/行号 映射
 ├── change_detector.py     # 哈希比对 + PR diff 解析
 ├── test_selector.py       # TestSelector：行/函数/文件三级级联匹配
+├── operator_mapper.py     # sglang-kernel csrc 算子↔测试静态映射（原生代码变更选择）
 └── repos/                 # 仓库差异按仓归类
     ├── base.py            #   RepoAdapter 抽象接口
     ├── vllm_ascend.py     #   vllm_ascend 适配器
     ├── sglang.py          #   sglang 适配器
+    ├── sglang_kernel.py   #   sglang-kernel（sgl-kernel-npu）适配器
     ├── pytorch.py       #   pytorch（上游 pytorch/pytorch / GitHub）适配器
     ├── ascend_pytorch.py #  torch_npu（Ascend/pytorch / GitCode）适配器
     └── __init__.py        #   适配器注册表 get_adapter()
@@ -287,6 +289,31 @@ if args.disable_function_match:
 > pytorch 不触发全量：`torch/csrc/` 等原生代码（C++/CUDA）变更不会被解析进精准匹配（仅保留 `.py`）。**注意**：纯原生代码变更的 PR 可能返回 0 推荐，此时存在漏测风险，建议人工评估是否需跑相关用例（详见故障排除表）。
 > 
 > torch_npu 不触发全量：仅 `torch_npu/` 前缀下的 `.py` 变更纳入精准匹配；fork 的 `torch/` 上游代码与原生 C++/CUDA 变更不解析，同样存在上述漏测风险。
+
+### csrc 算子实时映射（仅 sglang-kernel）
+
+sglang-kernel 的 `csrc/` 下是 CANN 算子原生代码（C++/Ascend C），不在 Python 覆盖率数据内，
+行/函数级精准匹配无法召回。test_selector 在每次 PR 推荐时用**实时静态映射**补足这一选择面：
+
+```
+PR diff 中 csrc/ 前缀且非 .md 文件
+  → 基于 --operator-repo-root 实时扫描当前仓库
+  → 目录归属算子（TORCH_LIBRARY 注册名）
+  → Python 调用图闭包（torch.ops.npu.*）
+  → 测试导入归因（tests/python/**）
+  → 命中的测试用例直接并入最终推荐结果
+```
+
+**使用方式**：
+
+```bash
+python -m test_selector --repo sglang-kernel     --github-pr "sgl-project/sglang-kernel#123"     --operator-repo-root /path/to/sgl-kernel-npu
+```
+
+- 每次推荐都在内存中重新构建映射，**不需要也不读取 `operator_map.json`**，避免映射过期。
+- 只有存在非 Markdown 的 `csrc/` 文件变更时才触发扫描；纯 `.md` 变更不构建映射，也不要求 `--operator-repo-root`。
+- 非 Markdown 的 `csrc/` 变更缺少 `--operator-repo-root` 时直接报错，避免静默漏选。
+- 无算子归属的 csrc 文件（构建脚本、`.clang-format`、未被引用的公共头）标记 INFRA，不推荐任何测试。
 
 ### 排除变更场景（diff_parser）
 

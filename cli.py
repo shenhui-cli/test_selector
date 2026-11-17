@@ -16,9 +16,11 @@
 """
 
 import argparse
+import re
 from pathlib import Path
 
 from . import github, gitcode, pr_detector
+from . import operator_mapper
 from .change_detector import CodeChangeDetector
 from .coverage_selector import CoverageSelector
 from .repos import AVAILABLE_REPOS, get_adapter
@@ -91,6 +93,11 @@ def build_parser(adapter, default_repo: str) -> argparse.ArgumentParser:
     parser.add_argument(
         "--new-tests-output",
         help="Write the new test files extracted from the PR diff to this file (one per line, for the append-table workflow)",
+    )
+    parser.add_argument(
+        "--operator-repo-root",
+        default=None,
+        help="sgl-kernel-npu repository root for real-time csrc mapping (contains csrc/, python/sgl_kernel_npu/, tests/python/)",
     )
     parser.add_argument(
         "--output", "-o",
@@ -183,6 +190,32 @@ def main(argv=None, default_repo: str = "vllm_ascend") -> None:
         new_test_files = pr_detector.get_test_files_from_pr_diff(diff_content, adapter)
         deleted_test_files = pr_detector.get_deleted_test_files_from_pr(diff_content, adapter)
         has_full_suite = pr_detector.has_full_suite_changes(diff_content, adapter)
+
+    # ===== Action 1b: 非 Markdown csrc 变更 -> 实时构建内存映射（sglang-kernel）=====
+    csrc_selected: list[str] = []
+    if diff_file and adapter.repo_name == "sgl_kernel_npu":
+        csrc_files = sorted({
+            path
+            for path in re.findall(r"(?:^|\s)(?:a|b)/(csrc/[^\s]+)", diff_content, flags=re.M)
+            if not path.lower().endswith(".md")
+        })
+        if csrc_files:
+            if not args.operator_repo_root:
+                print("Error: --operator-repo-root is required for real-time csrc operator mapping")
+                exit(1)
+            repo_root = _resolve_abs(BASE_DIR, args.operator_repo_root)
+            print(f"\n=== Building Real-Time CSRC Operator Mapping ({len(csrc_files)} changed files) ===")
+            op_map = operator_mapper.build_operator_map(repo_root)
+            selection = operator_mapper.select_tests_for_files(op_map, csrc_files)
+            for f, tests in selection.items():
+                if tests:
+                    print(f"  {f}: {len(tests)} tests")
+                    csrc_selected.extend(tests)
+                else:
+                    print(f"  {f}: (INFRA, no tests)")
+            csrc_selected = sorted(set(csrc_selected))
+            print(f"  -> {len(csrc_selected)} tests from csrc operator mapping")
+
 
     # ===== Action 2: Detect Python product code changes -> Precision matching =====
     selected: list[tuple[str, dict, int]] = []
@@ -283,6 +316,17 @@ def main(argv=None, default_repo: str = "vllm_ascend") -> None:
         print(f"\n=== Full Test Suite: {len(base_selected)} tests ===")
     else:
         base_selected = selected
+
+    # Merge csrc operator mapping results
+    if csrc_selected:
+        existing = {s[0] for s in base_selected}
+        added = 0
+        for test_name in csrc_selected:
+            if test_name not in existing:
+                base_selected.append((test_name, {}, 0))
+                existing.add(test_name)
+                added += 1
+        print(f"\n=== CSRC Operator Mapping Tests Added: {added} ===")
 
     # Add new test files
     existing_test_names = {s[0] for s in base_selected}
