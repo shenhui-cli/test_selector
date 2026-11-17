@@ -104,6 +104,20 @@ class CoverageSelector:
                 if tono > 0:
                     lines.add(tono)
 
+            # 回退：coverage.py v7.x 纯行覆盖模式（has_arcs=0）时 arc 表为空，
+            # 行号存于 line_bits 位图（numbits：字节 k 的第 i 位 = 行 k*8+i+1）
+            if not lines:
+                try:
+                    cursor.execute("SELECT numbits FROM line_bits WHERE file_id = ?", (file_id,))
+                except sqlite3.OperationalError:
+                    pass  # 旧 schema 无 line_bits 表
+                else:
+                    for (numbits,) in cursor.fetchall():
+                        for byte_i, byte in enumerate(numbits):
+                            for bit_i in range(8):
+                                if byte & (1 << bit_i):
+                                    lines.add(byte_i * 8 + bit_i + 1)
+
             conn.close()
         except Exception as e:
             print(f"  Warning: Error reading {cov_file}: {e}")
