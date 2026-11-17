@@ -88,35 +88,56 @@ class CoverageSelector:
             conn = sqlite3.connect(_long_path(cov_file))
             cursor = conn.cursor()
 
-            # 模糊路径匹配查找文件 ID
-            cursor.execute("SELECT id FROM file WHERE path LIKE ?", (f"%{filename}",))
-            row = cursor.fetchone()
-            if not row:
+            # 精确匹配完整相对路径后缀及路径段边界，避免 npu/ 命中 torch_npu/。
+            posix_rel = filename.replace("\\", "/")
+            windows_rel = posix_rel.replace("/", "\\")
+            posix_suffix = "/" + posix_rel
+            windows_suffix = "\\" + windows_rel
+            cursor.execute(
+                """
+                SELECT id FROM file
+                WHERE path = ? COLLATE NOCASE
+                   OR path = ? COLLATE NOCASE
+                   OR substr(path, -length(?)) = ? COLLATE NOCASE
+                   OR substr(path, -length(?)) = ? COLLATE NOCASE
+                """,
+                (
+                    posix_rel,
+                    windows_rel,
+                    posix_suffix,
+                    posix_suffix,
+                    windows_suffix,
+                    windows_suffix,
+                ),
+            )
+            file_ids = [row[0] for row in cursor.fetchall()]
+            if not file_ids:
                 conn.close()
                 return lines
-            file_id = row[0]
 
-            # 获取所有 arc，计算覆盖行号
-            cursor.execute("SELECT DISTINCT fromno, tono FROM arc WHERE file_id = ?", (file_id,))
-            for fromno, tono in cursor.fetchall():
-                if fromno > 0:
-                    lines.add(fromno)
-                if tono > 0:
-                    lines.add(tono)
+            for file_id in file_ids:
+                file_lines = set()
+                cursor.execute("SELECT DISTINCT fromno, tono FROM arc WHERE file_id = ?", (file_id,))
+                for fromno, tono in cursor.fetchall():
+                    if fromno > 0:
+                        file_lines.add(fromno)
+                    if tono > 0:
+                        file_lines.add(tono)
 
-            # 回退：coverage.py v7.x 纯行覆盖模式（has_arcs=0）时 arc 表为空，
-            # 行号存于 line_bits 位图（numbits：字节 k 的第 i 位 = 行 k*8+i+1）
-            if not lines:
-                try:
-                    cursor.execute("SELECT numbits FROM line_bits WHERE file_id = ?", (file_id,))
-                except sqlite3.OperationalError:
-                    pass  # 旧 schema 无 line_bits 表
-                else:
-                    for (numbits,) in cursor.fetchall():
-                        for byte_i, byte in enumerate(numbits):
-                            for bit_i in range(8):
-                                if byte & (1 << bit_i):
-                                    lines.add(byte_i * 8 + bit_i + 1)
+                # 回退：coverage.py v7.x 纯行覆盖模式（has_arcs=0）时 arc 表为空，
+                # 行号存于 line_bits 位图（numbits：字节 k 的第 i 位 = 行 k*8+i+1）
+                if not file_lines:
+                    try:
+                        cursor.execute("SELECT numbits FROM line_bits WHERE file_id = ?", (file_id,))
+                    except sqlite3.OperationalError:
+                        pass  # 旧 schema 无 line_bits 表
+                    else:
+                        for (numbits,) in cursor.fetchall():
+                            for byte_i, byte in enumerate(numbits):
+                                for bit_i in range(8):
+                                    if byte & (1 << bit_i):
+                                        file_lines.add(byte_i * 8 + bit_i + 1)
+                lines.update(file_lines)
 
             conn.close()
         except Exception as e:
