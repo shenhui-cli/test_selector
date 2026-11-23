@@ -115,7 +115,8 @@ class CoverageSelector:
                         lines_by_file_id[file_id].add(tono)
 
             # 回退：coverage.py v7.x 纯行覆盖模式（has_arcs=0）时 arc 表为空，
-            # 行号存于 line_bits 位图（numbits：字节 k 的第 i 位 = 行 k*8+i+1）
+            # 行号存于 line_bits 位图（numbits：字节 k 的第 i 位 = 行 k*8+i，
+            # 与 coverage.numbits.numbits_to_nums 一致）
             empty_file_ids = [file_id for file_id in file_ids if not lines_by_file_id[file_id]]
             try:
                 for start in range(0, len(empty_file_ids), batch_size):
@@ -129,7 +130,7 @@ class CoverageSelector:
                         for byte_i, byte in enumerate(numbits):
                             for bit_i in range(8):
                                 if byte & (1 << bit_i):
-                                    lines_by_file_id[file_id].add(byte_i * 8 + bit_i + 1)
+                                    lines_by_file_id[file_id].add(byte_i * 8 + bit_i)
             except sqlite3.OperationalError:
                 pass  # 旧 schema 无 line_bits 表
 
