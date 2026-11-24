@@ -24,6 +24,7 @@ import ssl
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Callable
@@ -70,17 +71,78 @@ def _ssl_context() -> ssl.SSLContext:
     return ctx
 
 
+#: 配额余量告警阈值：成功响应中 X-RateLimit-Remaining 低于该值时打印
+#: "即将触发限流"告警（提前感知，避免下一次请求才撞上 429）
+RATE_LIMIT_WARN_THRESHOLD = 5
+
+
+def _log_rate_limit_status(headers, token_attached: bool) -> None:
+    """从响应头读取配额状态并打印；余量低于阈值时告警"即将限流"。
+
+    无论是否带 token 都调用：认证配额也可能被耗尽（如 CI 并发任务共享
+    同一 token）。GitCode 不提供 X-RateLimit-* 头时打印提示，便于区分
+    "配额充足"与"服务端未暴露配额"。
+    """
+    if not headers:
+        print("  Rate limit info not provided by GitCode API (no X-RateLimit-* headers)")
+        return
+    limit = headers.get("X-RateLimit-Limit")
+    remaining = headers.get("X-RateLimit-Remaining")
+    reset = headers.get("X-RateLimit-Reset")
+    if limit is None and remaining is None:
+        print("  Rate limit info not provided by GitCode API (no X-RateLimit-* headers)")
+        return
+    auth_state = "token" if token_attached else "anonymous"
+    if remaining is not None:
+        try:
+            remaining_num = int(remaining)
+        except (TypeError, ValueError):
+            remaining_num = None
+        if remaining_num is not None and remaining_num <= RATE_LIMIT_WARN_THRESHOLD:
+            reset_hint = f", resets_at={reset}" if reset else ""
+            print(
+                f"  WARNING: rate limit approaching ({auth_state} quota): "
+                f"remaining={remaining_num}/{limit or '?'}{reset_hint} — "
+                f"next request(s) may get HTTP 429"
+            )
+            return
+    print(f"  Rate limit status ({auth_state}): limit={limit or '?'}, remaining={remaining or '?'}"
+          + (f", resets_at={reset}" if reset else ""))
+
+
 def _gitcode_request(url: str, gitcode_token: str | None, ssl_context) -> str:
     """发起 GitCode API 请求并返回响应文本。
 
     GitCode 认证方式：access_token 作为查询参数（与 GitHub 的 Bearer header 不同）。
     """
+    # 不打印 token 值本身，仅打印是否携带，便于排查匿名请求误触发限流
+    if gitcode_token:
+        print(f"  GitCode API request with token: {url}")
+    else:
+        print(f"  WARNING: GitCode API request WITHOUT token (anonymous, low rate limit): {url}")
     if gitcode_token:
         separator = "&" if "?" in url else "?"
         url = f"{url}{separator}access_token={urllib.parse.quote(gitcode_token)}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=60, context=ssl_context) as response:
-        return response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(req, timeout=60, context=ssl_context) as response:
+            # 成功响应也感知配额：X-RateLimit-* 头暴露余量，低余量提前告警
+            _log_rate_limit_status(response.headers, bool(gitcode_token))
+            return response.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            # 429 即触发限流；Retry-After / X-RateLimit-* 头（如提供）给出
+            # 配额余量与等待建议，token_attached 用于区分认证与匿名配额
+            retry_after = e.headers.get("Retry-After") if e.headers else None
+            limit = e.headers.get("X-RateLimit-Limit") if e.headers else None
+            remaining = e.headers.get("X-RateLimit-Remaining") if e.headers else None
+            print(
+                f"  Rate limited (HTTP 429): token_attached={bool(gitcode_token)}, "
+                f"limit={limit}, remaining={remaining}, retry_after={retry_after}s"
+            )
+        else:
+            print(f"  HTTP {e.code} from GitCode API: {e.reason}")
+        raise
 
 
 def _build_unified_diff(files_data: list[dict]) -> str:
@@ -207,6 +269,14 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
     print(f"Fetching changes from GitCode PR: {repo}#{pr_num}")
 
     gitcode_token = os.environ.get("GITCODE_TOKEN") or ""
+    # 启动即打印 token 是否注入，缺失时给出明确告警（匿名请求配额低，易触发 429）
+    if gitcode_token:
+        print("  GITCODE_TOKEN found in environment: GitCode API requests will be authenticated")
+    else:
+        print(
+            "  WARNING: GITCODE_TOKEN not found in environment; "
+            "GitCode API requests will be anonymous (low rate limit, prone to HTTP 429)"
+        )
     ssl_context = _ssl_context()
 
     # 使用跨平台临时目录
