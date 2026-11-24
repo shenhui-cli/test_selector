@@ -308,8 +308,15 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
         exit(1)
 
     # 2) 获取 diff：优先公开 .diff 端点（原生 git diff，自带 rename/delete/
-    #    new-file 标记，无需 token、不占 REST 配额），失败兜底 /files 拼接
+    #    new-file 标记，不占 REST 配额），失败兜底 /files 拼接。
+    #    token 非空时同样附加 access_token：网页域对匿名请求按 IP 限流，
+    #    runner 出口 IP 常年 429（带 token 实测可通过）
     diff_url = f"https://gitcode.com/{repo}/pull/{pr_num}.diff"
+    if gitcode_token:
+        diff_url = f"{diff_url}?access_token={urllib.parse.quote(gitcode_token)}"
+        print("  PR diff request with token (appended access_token)")
+    else:
+        print("  WARNING: PR diff request WITHOUT token (anonymous, low rate limit)")
     diff_text = ""
     for attempt in range(1, max_retries + 1):
         print(f"  Attempt {attempt}/{max_retries} to get PR diff via GitCode .diff endpoint...")
@@ -354,8 +361,15 @@ def fetch_pr_diff(pr_spec: str) -> tuple[str, Callable[[str], str]]:
         GitCode raw 接口：https://raw.gitcode.com/{repo}/raw/{sha}/{path}。
         仅此单路获取；失败即退出，不允许降级：base 内容缺失会导致
         AST 分类退化（候选对两侧计入），精度无法保证。
+        token 非空时同样附加 access_token：raw 域对匿名请求限流/封锁，
+        runner 出口 IP 常年 403（带 token 实测可通过）。
         """
         raw_url = f"https://raw.gitcode.com/{repo}/raw/{base_sha}/{urllib.parse.quote(path)}"
+        if gitcode_token:
+            raw_url = f"{raw_url}?access_token={urllib.parse.quote(gitcode_token)}"
+            print(f"  Base content request with token: {path}")
+        else:
+            print(f"  WARNING: Base content request WITHOUT token (anonymous, low rate limit): {path}")
         for attempt in range(1, max_retries + 1):
             try:
                 req = urllib.request.Request(raw_url, headers={"User-Agent": "Mozilla/5.0"})
