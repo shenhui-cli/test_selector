@@ -2,6 +2,7 @@
 
 from .ascend_pytorch import AscendPytorchAdapter
 from .base import RepoAdapter
+from .mindspeed import MindSpeedAdapter
 from .msmodeling import MsmodelingAdapter
 from .msmodelslim import MsmodelslimAdapter
 from .sglang import SglangAdapter
@@ -20,6 +21,7 @@ __all__ = [
     "AscendPytorchAdapter",
     "MsmodelingAdapter",
     "MsmodelslimAdapter",
+    "MindSpeedAdapter",
     "TransformerEngineAdapter",
     "VerlAdapter",
     "get_adapter",
@@ -35,6 +37,7 @@ _ADAPTERS = {
     "torch_npu": AscendPytorchAdapter,
     "msmodeling": MsmodelingAdapter,
     "msmodelslim": MsmodelslimAdapter,
+    "mindspeed": MindSpeedAdapter,
     "transformer_engine": TransformerEngineAdapter,
     "verl": VerlAdapter,
 }
