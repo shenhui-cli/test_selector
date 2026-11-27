@@ -5,6 +5,7 @@
 - 测试文件规则：tests/e2e/pull_request/ 或 tests/ut/ 下 test_*.py
 - csrc 目录变更（非 .md）触发全量测试套件
 - 测试名规范化：-- -> ::，__ -> /，文件级补 .py
+- 不合并参数化用例：保留 test_foo[param_id] 为独立条目（对齐原始实现）
 """
 
 from fnmatch import fnmatchcase
@@ -19,6 +20,9 @@ class VllmAscendAdapter(RepoAdapter):
     repo_name = "vllm_ascend"
     product_code_prefix = "vllm_ascend/"
     test_case_dir_prefix = None
+
+    #: 原始实现不合并参数化用例（normalize 不拆 [，[param_id] 保留为独立条目）
+    merge_parametrized_cases: bool = False
 
     #: 可纳入 PR 检测的测试根目录
     TEST_ROOTS = ("tests/e2e/pull_request/", "tests/ut/")
