@@ -2,6 +2,7 @@
 
 from .ascend_pytorch import AscendPytorchAdapter
 from .base import RepoAdapter
+from .mindiesd import MindieSdAdapter
 from .mindspeed import MindSpeedAdapter
 from .msmodeling import MsmodelingAdapter
 from .msmodelslim import MsmodelslimAdapter
@@ -21,6 +22,7 @@ __all__ = [
     "AscendPytorchAdapter",
     "MsmodelingAdapter",
     "MsmodelslimAdapter",
+    "MindieSdAdapter",
     "MindSpeedAdapter",
     "TransformerEngineAdapter",
     "VerlAdapter",
@@ -37,6 +39,7 @@ _ADAPTERS = {
     "torch_npu": AscendPytorchAdapter,
     "msmodeling": MsmodelingAdapter,
     "msmodelslim": MsmodelslimAdapter,
+    "mindiesd": MindieSdAdapter,
     "mindspeed": MindSpeedAdapter,
     "transformer_engine": TransformerEngineAdapter,
     "verl": VerlAdapter,
